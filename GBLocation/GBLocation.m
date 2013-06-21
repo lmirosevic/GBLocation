@@ -8,6 +8,8 @@
 
 #import "GBLocation.h"
 
+#define kDefaultDesiredAccuracy kCLLocationAccuracyKilometer
+
 @interface GBLocation () <CLLocationManagerDelegate>
 
 @property (strong, nonatomic) CLLocationManager         *locationManager;
@@ -38,6 +40,7 @@
     if (self) {
         self.locationManager = [CLLocationManager new];
         self.locationManager.delegate = self;
+        self.desiredAccuracy = kDefaultDesiredAccuracy;
     }
     
     return self;
@@ -55,8 +58,7 @@
 }
 
 - (void)locationManager:(CLLocationManager *)manager didUpdateToLocation:(CLLocation *)newLocation fromLocation:(CLLocation *)oldLocation {
-    
-    if (NO) {//foo this should check that the accuracy is good enough
+    if (newLocation.horizontalAccuracy > 0 && newLocation.horizontalAccuracy <= self.desiredAccuracy) {
         //remember the location
         self.myLocation = newLocation;
         
@@ -72,11 +74,25 @@
 
 #pragma mark - API
 
+-(void)fetchCurrentLocationWithAccuracy:(CLLocationAccuracy)accuracy {
+    self.desiredAccuracy = accuracy;
+    
+    [self _startUpdates];
+}
+
+-(void)refreshCurrentLocationWithCompletion:(DidFetchLocationBlock)block {
+    [self refreshCurrentLocationWithAccuracy:self.desiredAccuracy completion:block];
+}
+
 -(void)refreshCurrentLocationWithAccuracy:(CLLocationAccuracy)accuracy completion:(DidFetchLocationBlock)block {
     self.didFetchLocationBlock = block;
     self.desiredAccuracy = accuracy;
     
-    self.locationManager.desiredAccuracy = accuracy;
+    [self _startUpdates];
+}
+
+-(void)_startUpdates {
+    self.locationManager.desiredAccuracy = self.desiredAccuracy;
     [self.locationManager startUpdatingLocation];
 }
 

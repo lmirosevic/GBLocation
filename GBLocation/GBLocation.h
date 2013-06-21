@@ -20,6 +20,8 @@ typedef void(^DidFetchLocationBlock)(BOOL success, CLLocation *myLocation);
 
 +(GBLocation *)sharedLocation;
 
+-(void)fetchCurrentLocationWithAccuracy:(CLLocationAccuracy)accuracy;
+-(void)refreshCurrentLocationWithCompletion:(DidFetchLocationBlock)block;
 -(void)refreshCurrentLocationWithAccuracy:(CLLocationAccuracy)accuracy completion:(DidFetchLocationBlock)block;
 
 @end
