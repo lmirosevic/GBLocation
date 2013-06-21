@@ -1,0 +1,249 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		8A23E8D117742C3C00170C7E /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8A23E8D017742C3C00170C7E /* Foundation.framework */; };
+		8A23E8D617742C3C00170C7E /* GBLocation.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 8A23E8D517742C3C00170C7E /* GBLocation.h */; };
+		8A23E8D817742C3C00170C7E /* GBLocation.m in Sources */ = {isa = PBXBuildFile; fileRef = 8A23E8D717742C3C00170C7E /* GBLocation.m */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		8A23E8CB17742C3C00170C7E /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "include/${PRODUCT_NAME}";
+			dstSubfolderSpec = 16;
+			files = (
+				8A23E8D617742C3C00170C7E /* GBLocation.h in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		8A23E8CD17742C3C00170C7E /* libGBLocation.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libGBLocation.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		8A23E8D017742C3C00170C7E /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
+		8A23E8D417742C3C00170C7E /* GBLocation-Prefix.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "GBLocation-Prefix.pch"; sourceTree = "<group>"; };
+		8A23E8D517742C3C00170C7E /* GBLocation.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GBLocation.h; sourceTree = "<group>"; };
+		8A23E8D717742C3C00170C7E /* GBLocation.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = GBLocation.m; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		8A23E8CA17742C3C00170C7E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8A23E8D117742C3C00170C7E /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		8A23E8C417742C3B00170C7E = {
+			isa = PBXGroup;
+			children = (
+				8A23E8D217742C3C00170C7E /* GBLocation */,
+				8A23E8CF17742C3C00170C7E /* Frameworks */,
+				8A23E8CE17742C3C00170C7E /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		8A23E8CE17742C3C00170C7E /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				8A23E8CD17742C3C00170C7E /* libGBLocation.a */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		8A23E8CF17742C3C00170C7E /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				8A23E8D017742C3C00170C7E /* Foundation.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		8A23E8D217742C3C00170C7E /* GBLocation */ = {
+			isa = PBXGroup;
+			children = (
+				8A23E8D517742C3C00170C7E /* GBLocation.h */,
+				8A23E8D717742C3C00170C7E /* GBLocation.m */,
+				8A23E8D317742C3C00170C7E /* Supporting Files */,
+			);
+			path = GBLocation;
+			sourceTree = "<group>";
+		};
+		8A23E8D317742C3C00170C7E /* Supporting Files */ = {
+			isa = PBXGroup;
+			children = (
+				8A23E8D417742C3C00170C7E /* GBLocation-Prefix.pch */,
+			);
+			name = "Supporting Files";
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		8A23E8CC17742C3C00170C7E /* GBLocation */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 8A23E8DB17742C3C00170C7E /* Build configuration list for PBXNativeTarget "GBLocation" */;
+			buildPhases = (
+				8A23E8C917742C3C00170C7E /* Sources */,
+				8A23E8CA17742C3C00170C7E /* Frameworks */,
+				8A23E8CB17742C3C00170C7E /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = GBLocation;
+			productName = GBLocation;
+			productReference = 8A23E8CD17742C3C00170C7E /* libGBLocation.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		8A23E8C517742C3B00170C7E /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0460;
+				ORGANIZATIONNAME = Goonbee;
+			};
+			buildConfigurationList = 8A23E8C817742C3B00170C7E /* Build configuration list for PBXProject "GBLocation" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = 8A23E8C417742C3B00170C7E;
+			productRefGroup = 8A23E8CE17742C3C00170C7E /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				8A23E8CC17742C3C00170C7E /* GBLocation */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		8A23E8C917742C3C00170C7E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8A23E8D817742C3C00170C7E /* GBLocation.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		8A23E8D917742C3C00170C7E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 6.1;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+			};
+			name = Debug;
+		};
+		8A23E8DA17742C3C00170C7E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 6.1;
+				SDKROOT = iphoneos;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		8A23E8DC17742C3C00170C7E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				DSTROOT = /tmp/GBLocation.dst;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "GBLocation/GBLocation-Prefix.pch";
+				OTHER_LDFLAGS = "-ObjC";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+			};
+			name = Debug;
+		};
+		8A23E8DD17742C3C00170C7E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				DSTROOT = /tmp/GBLocation.dst;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "GBLocation/GBLocation-Prefix.pch";
+				OTHER_LDFLAGS = "-ObjC";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		8A23E8C817742C3B00170C7E /* Build configuration list for PBXProject "GBLocation" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				8A23E8D917742C3C00170C7E /* Debug */,
+				8A23E8DA17742C3C00170C7E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		8A23E8DB17742C3C00170C7E /* Build configuration list for PBXNativeTarget "GBLocation" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				8A23E8DC17742C3C00170C7E /* Debug */,
+				8A23E8DD17742C3C00170C7E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 8A23E8C517742C3B00170C7E /* Project object */;
+}
