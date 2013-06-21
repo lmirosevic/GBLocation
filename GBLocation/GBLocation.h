@@ -8,6 +8,18 @@
 
 #import <Foundation/Foundation.h>
 
+#import <CoreLocation/CoreLocation.h>
+
+//property to get the location
+
+typedef void(^DidFetchLocationBlock)(BOOL success, CLLocation *myLocation);
+
 @interface GBLocation : NSObject
+
+@property (strong, nonatomic, readonly) CLLocation      *myLocation;
+
++(GBLocation *)sharedLocation;
+
+-(void)refreshCurrentLocationWithAccuracy:(CLLocationAccuracy)accuracy completion:(DidFetchLocationBlock)block;
 
 @end

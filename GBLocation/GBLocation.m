@@ -8,6 +8,76 @@
 
 #import "GBLocation.h"
 
+@interface GBLocation () <CLLocationManagerDelegate>
+
+@property (strong, nonatomic) CLLocationManager         *locationManager;
+@property (strong, nonatomic, readwrite) CLLocation     *myLocation;
+@property (copy, nonatomic) DidFetchLocationBlock       didFetchLocationBlock;
+@property (assign, nonatomic) CLLocationAccuracy        desiredAccuracy;
+
+@end
+
 @implementation GBLocation
+
+#pragma mark - memory
+
++(GBLocation *)sharedLocation {
+    static GBLocation *sharedLocation;
+    
+    @synchronized(self) {
+        if (!sharedLocation) {
+            sharedLocation = [GBLocation new];
+        }
+        
+        return sharedLocation;
+    }
+}
+
+- (id)init {
+    self = [super init];
+    if (self) {
+        self.locationManager = [CLLocationManager new];
+        self.locationManager.delegate = self;
+    }
+    
+    return self;
+}
+
+#pragma mark - CLLocationManagerDelegate
+
+- (void)locationManager:(CLLocationManager *)manager didFailWithError:(NSError *)error {
+    [manager stopUpdatingLocation];
+    
+    if (self.didFetchLocationBlock) {
+        self.didFetchLocationBlock(NO, self.myLocation);
+        self.didFetchLocationBlock = nil;
+    }
+}
+
+- (void)locationManager:(CLLocationManager *)manager didUpdateToLocation:(CLLocation *)newLocation fromLocation:(CLLocation *)oldLocation {
+    
+    if (NO) {//foo this should check that the accuracy is good enough
+        //remember the location
+        self.myLocation = newLocation;
+        
+        //turn off future updates
+        [manager stopUpdatingLocation];
+        
+        if (self.didFetchLocationBlock) {
+            self.didFetchLocationBlock(YES, self.myLocation);
+            self.didFetchLocationBlock = nil;
+        }
+    }
+}
+
+#pragma mark - API
+
+-(void)refreshCurrentLocationWithAccuracy:(CLLocationAccuracy)accuracy completion:(DidFetchLocationBlock)block {
+    self.didFetchLocationBlock = block;
+    self.desiredAccuracy = accuracy;
+    
+    self.locationManager.desiredAccuracy = accuracy;
+    [self.locationManager startUpdatingLocation];
+}
 
 @end
