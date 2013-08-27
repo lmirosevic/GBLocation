@@ -14,12 +14,22 @@
 
 @property (strong, nonatomic) CLLocationManager         *locationManager;
 @property (strong, nonatomic, readwrite) CLLocation     *myLocation;
-@property (copy, nonatomic) DidFetchLocationBlock       didFetchLocationBlock;
+@property (strong, nonatomic) NSMutableArray            *didFetchLocationBlockHandlers;
 @property (assign, nonatomic) CLLocationAccuracy        desiredAccuracy;
 
 @end
 
 @implementation GBLocation
+
+#pragma mark - CA
+
+-(NSMutableArray *)didFetchLocationBlockHandlers {
+    if (!_didFetchLocationBlockHandlers) {
+        _didFetchLocationBlockHandlers = [NSMutableArray new];
+    }
+    
+    return _didFetchLocationBlockHandlers;
+}
 
 #pragma mark - memory
 
@@ -48,27 +58,20 @@
 
 #pragma mark - CLLocationManagerDelegate
 
-- (void)locationManager:(CLLocationManager *)manager didFailWithError:(NSError *)error {
+-(void)locationManager:(CLLocationManager *)manager didFailWithError:(NSError *)error {
     [manager stopUpdatingLocation];
     
-    if (self.didFetchLocationBlock) {
-        self.didFetchLocationBlock(NO, self.myLocation);
-        self.didFetchLocationBlock = nil;
-    }
+    [self _processBlocksWithSuccess:NO myLocation:self.myLocation];
 }
 
-- (void)locationManager:(CLLocationManager *)manager didUpdateToLocation:(CLLocation *)newLocation fromLocation:(CLLocation *)oldLocation {
+-(void)locationManager:(CLLocationManager *)manager didUpdateToLocation:(CLLocation *)newLocation fromLocation:(CLLocation *)oldLocation {
     if (newLocation.horizontalAccuracy > 0 && newLocation.horizontalAccuracy <= self.desiredAccuracy) {
         //remember the location
         self.myLocation = newLocation;
         
-        //turn off future updates
-        [manager stopUpdatingLocation];
+        [self _processBlocksWithSuccess:YES myLocation:self.myLocation];
         
-        if (self.didFetchLocationBlock) {
-            self.didFetchLocationBlock(YES, self.myLocation);
-            self.didFetchLocationBlock = nil;
-        }
+        [self _stopUpdates];
     }
 }
 
@@ -85,15 +88,37 @@
 }
 
 -(void)refreshCurrentLocationWithAccuracy:(CLLocationAccuracy)accuracy completion:(DidFetchLocationBlock)block {
-    self.didFetchLocationBlock = block;
-    self.desiredAccuracy = accuracy;
+    [self _addBlock:block];
+    self.desiredAccuracy = MAX(self.desiredAccuracy, accuracy);
     
     [self _startUpdates];
 }
 
+#pragma mark - util
+
 -(void)_startUpdates {
     self.locationManager.desiredAccuracy = self.desiredAccuracy;
     [self.locationManager startUpdatingLocation];
+}
+
+-(void)_stopUpdates {
+    //turn off future updates
+    [self.locationManager stopUpdatingLocation];
+}
+
+-(void)_processBlocksWithSuccess:(BOOL)success myLocation:(CLLocation *)myLocation {
+    //go through all the blocks, call them
+    for (DidFetchLocationBlock block in self.didFetchLocationBlockHandlers) {
+        block(success, myLocation);
+    }
+    
+    //reset the array (it's lazy)
+    self.didFetchLocationBlockHandlers = nil;
+}
+
+-(void)_addBlock:(DidFetchLocationBlock)block {
+    //add a copy to our array
+    [self.didFetchLocationBlockHandlers addObject:[block copy]];
 }
 
 @end
