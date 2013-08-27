@@ -73,7 +73,7 @@
         
         [self _processBlocksWithSuccess:YES myLocation:self.myLocation];
         
-        [self _stopUpdates];
+        [self _stopUpdatesForManager:manager];
     }
     else {
         NSLog(@"not good enough: %f", newLocation.horizontalAccuracy);
@@ -97,7 +97,7 @@
 -(void)refreshCurrentLocationWithAccuracy:(CLLocationAccuracy)accuracy completion:(DidFetchLocationBlock)block {
     NSLog(@"refresh with competion %f", accuracy);
     [self _addBlock:block];
-    self.desiredAccuracy = MAX(self.desiredAccuracy, accuracy);
+    self.desiredAccuracy = MIN(self.desiredAccuracy, accuracy);
     
     [self _startUpdates];
 }
@@ -110,10 +110,10 @@
     [self.locationManager startUpdatingLocation];
 }
 
--(void)_stopUpdates {
+-(void)_stopUpdatesForManager:(CLLocationManager *)manager {
     NSLog(@"stop updates");
     //turn off future updates
-    [self.locationManager stopUpdatingLocation];
+    [manager stopUpdatingLocation];
 }
 
 -(void)_processBlocksWithSuccess:(BOOL)success myLocation:(CLLocation *)myLocation {
