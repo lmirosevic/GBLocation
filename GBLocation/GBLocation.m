@@ -59,7 +59,6 @@
 #pragma mark - CLLocationManagerDelegate
 
 -(void)locationManager:(CLLocationManager *)manager didFailWithError:(NSError *)error {
-    NSLog(@"failed with error");
     [manager stopUpdatingLocation];
     
     [self _processBlocksWithSuccess:NO myLocation:self.myLocation];
@@ -67,7 +66,6 @@
 
 -(void)locationManager:(CLLocationManager *)manager didUpdateToLocation:(CLLocation *)newLocation fromLocation:(CLLocation *)oldLocation {
     if (newLocation.horizontalAccuracy > 0 && newLocation.horizontalAccuracy <= self.desiredAccuracy) {
-        NSLog(@"got one: %f", newLocation.horizontalAccuracy);
         //remember the location
         self.myLocation = newLocation;
         
@@ -75,27 +73,21 @@
         
         [self _stopUpdatesForManager:manager];
     }
-    else {
-        NSLog(@"not good enough: %f", newLocation.horizontalAccuracy);
-    }
 }
 
 #pragma mark - API
 
 -(void)fetchCurrentLocationWithAccuracy:(CLLocationAccuracy)accuracy {
-    NSLog(@"fetch %f", accuracy);
     self.desiredAccuracy = accuracy;
     
     [self _startUpdates];
 }
 
 -(void)refreshCurrentLocationWithCompletion:(DidFetchLocationBlock)block {
-    NSLog(@"refresh %f", self.desiredAccuracy);
     [self refreshCurrentLocationWithAccuracy:self.desiredAccuracy completion:block];
 }
 
 -(void)refreshCurrentLocationWithAccuracy:(CLLocationAccuracy)accuracy completion:(DidFetchLocationBlock)block {
-    NSLog(@"refresh with competion %f", accuracy);
     [self _addBlock:block];
     self.desiredAccuracy = MIN(self.desiredAccuracy, accuracy);
     
@@ -105,32 +97,25 @@
 #pragma mark - util
 
 -(void)_startUpdates {
-    NSLog(@"start uodates");
     self.locationManager.desiredAccuracy = self.desiredAccuracy;
     [self.locationManager startUpdatingLocation];
 }
 
 -(void)_stopUpdatesForManager:(CLLocationManager *)manager {
-    NSLog(@"stop updates");
-    //turn off future updates
     [manager stopUpdatingLocation];
 }
 
 -(void)_processBlocksWithSuccess:(BOOL)success myLocation:(CLLocation *)myLocation {
-    NSLog(@"process blcoks");
     //go through all the blocks, call them
     for (DidFetchLocationBlock block in self.didFetchLocationBlockHandlers) {
-        NSLog(@"run block");
         block(success, myLocation);
     }
     
-    NSLog(@"kill blocks");
     //reset the array (it's lazy)
     self.didFetchLocationBlockHandlers = nil;
 }
 
 -(void)_addBlock:(DidFetchLocationBlock)block {
-    NSLog(@"add block");
     //add a copy to our array
     [self.didFetchLocationBlockHandlers addObject:[block copy]];
 }
