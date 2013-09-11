@@ -8,7 +8,7 @@
 
 #import "GBLocation.h"
 
-#define kDefaultDesiredAccuracy kCLLocationAccuracyKilometer
+#define kDefaultDesiredAccuracy                         kCLLocationAccuracyKilometer
 
 @interface GBLocation () <CLLocationManagerDelegate>
 
@@ -50,6 +50,8 @@
     if (self) {
         self.locationManager = [CLLocationManager new];
         self.locationManager.delegate = self;
+        if ([self.locationManager respondsToSelector:@selector(setPausesLocationUpdatesAutomatically:)]) [self.locationManager setPausesLocationUpdatesAutomatically:NO];//ios 6 only
+        
         self.desiredAccuracy = kDefaultDesiredAccuracy;
     }
     
@@ -64,15 +66,14 @@
     [self _processBlocksWithSuccess:NO myLocation:self.myLocation];
 }
 
+//called in iOS 5
 -(void)locationManager:(CLLocationManager *)manager didUpdateToLocation:(CLLocation *)newLocation fromLocation:(CLLocation *)oldLocation {
-    if (newLocation.horizontalAccuracy > 0 && newLocation.horizontalAccuracy <= self.desiredAccuracy) {
-        //remember the location
-        self.myLocation = newLocation;
-        
-        [self _processBlocksWithSuccess:YES myLocation:self.myLocation];
-        
-        [self _stopUpdatesForManager:manager];
-    }
+    [self _gotNewLocation:newLocation];
+}
+
+//called in iOS 6+
+-(void)locationManager:(CLLocationManager *)manager didUpdateLocations:(NSArray *)locations {
+    [self _gotNewLocation:[locations lastObject]];
 }
 
 #pragma mark - API
@@ -96,13 +97,25 @@
 
 #pragma mark - util
 
+-(void)_gotNewLocation:(CLLocation *)location {
+    if (location.horizontalAccuracy > 0 && location.horizontalAccuracy <= self.desiredAccuracy) {
+        //remember the location
+        self.myLocation = location;
+        
+        [self _processBlocksWithSuccess:YES myLocation:self.myLocation];
+        
+        [self _stopUpdates];
+    }
+}
+
 -(void)_startUpdates {
+    [self.locationManager stopUpdatingLocation];//calling this triggers an initial fix to be sent again
     self.locationManager.desiredAccuracy = self.desiredAccuracy;
     [self.locationManager startUpdatingLocation];
 }
 
--(void)_stopUpdatesForManager:(CLLocationManager *)manager {
-    [manager stopUpdatingLocation];
+-(void)_stopUpdates {
+    [self.locationManager stopUpdatingLocation];
 }
 
 -(void)_processBlocksWithSuccess:(BOOL)success myLocation:(CLLocation *)myLocation {
