@@ -10,17 +10,16 @@
 
 #import <CoreLocation/CoreLocation.h>
 
-//property to get the location
-
 typedef void(^DidFetchLocationBlock)(BOOL success, CLLocation *myLocation);
 
 @interface GBLocation : NSObject
 
 @property (strong, nonatomic, readonly) CLLocation      *myLocation;
+@property (assign, nonatomic) NSTimeInterval            timeout;//defaults to 4 seconds
 
 +(GBLocation *)sharedLocation;
 
--(void)fetchCurrentLocationWithAccuracy:(CLLocationAccuracy)accuracy;
+-(void)refreshCurrentLocationWithAccuracy:(CLLocationAccuracy)accuracy;
 -(void)refreshCurrentLocationWithCompletion:(DidFetchLocationBlock)block;
 -(void)refreshCurrentLocationWithAccuracy:(CLLocationAccuracy)accuracy completion:(DidFetchLocationBlock)block;
 

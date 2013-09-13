@@ -8,6 +8,7 @@
 
 #import "GBLocation.h"
 
+static NSTimeInterval const kDefaultTimeout =           4;
 #define kDefaultDesiredAccuracy                         kCLLocationAccuracyKilometer
 
 @interface GBLocation () <CLLocationManagerDelegate>
@@ -53,6 +54,7 @@
         if ([self.locationManager respondsToSelector:@selector(setPausesLocationUpdatesAutomatically:)]) [self.locationManager setPausesLocationUpdatesAutomatically:NO];//ios 6 only
         
         self.desiredAccuracy = kDefaultDesiredAccuracy;
+        self.timeout = kDefaultTimeout;
     }
     
     return self;
@@ -63,7 +65,7 @@
 -(void)locationManager:(CLLocationManager *)manager didFailWithError:(NSError *)error {
     [manager stopUpdatingLocation];
     
-    [self _processBlocksWithSuccess:NO myLocation:self.myLocation];
+    [self _processBlocksWithSuccess:NO];
 }
 
 //called in iOS 5
@@ -78,10 +80,8 @@
 
 #pragma mark - API
 
--(void)fetchCurrentLocationWithAccuracy:(CLLocationAccuracy)accuracy {
-    self.desiredAccuracy = accuracy;
-    
-    [self _startUpdates];
+-(void)refreshCurrentLocationWithAccuracy:(CLLocationAccuracy)accuracy {
+    [self refreshCurrentLocationWithAccuracy:accuracy completion:nil];
 }
 
 -(void)refreshCurrentLocationWithCompletion:(DidFetchLocationBlock)block {
@@ -93,6 +93,18 @@
     self.desiredAccuracy = MIN(self.desiredAccuracy, accuracy);
     
     [self _startUpdates];
+    
+    if (block) {
+        //after a timeout...
+        dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(self.timeout * NSEC_PER_SEC));
+        dispatch_after(popTime, dispatch_get_main_queue(), ^{
+            //call the block with a fail
+            block(NO, self.myLocation);
+            
+            //remove it from the array
+            [self _removeBlock:block];
+        });
+    }
 }
 
 #pragma mark - util
@@ -102,7 +114,7 @@
         //remember the location
         self.myLocation = location;
         
-        [self _processBlocksWithSuccess:YES myLocation:self.myLocation];
+        [self _processBlocksWithSuccess:YES];
         
         [self _stopUpdates];
     }
@@ -118,10 +130,10 @@
     [self.locationManager stopUpdatingLocation];
 }
 
--(void)_processBlocksWithSuccess:(BOOL)success myLocation:(CLLocation *)myLocation {
+-(void)_processBlocksWithSuccess:(BOOL)success {
     //go through all the blocks, call them
     for (DidFetchLocationBlock block in self.didFetchLocationBlockHandlers) {
-        block(success, myLocation);
+        block(success, self.myLocation);
     }
     
     //reset the array (it's lazy)
@@ -129,8 +141,17 @@
 }
 
 -(void)_addBlock:(DidFetchLocationBlock)block {
-    //add a copy to our array
-    [self.didFetchLocationBlockHandlers addObject:[block copy]];
+    if (block) {
+        //add a copy to our array
+        [self.didFetchLocationBlockHandlers addObject:[block copy]];
+    }
+}
+
+-(void)_removeBlock:(DidFetchLocationBlock)block {
+    if (block) {
+        //add a copy to our array
+        [self.didFetchLocationBlockHandlers removeObject:block];
+    }
 }
 
 @end
