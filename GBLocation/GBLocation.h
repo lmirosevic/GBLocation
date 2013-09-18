@@ -10,7 +10,19 @@
 
 #import <CoreLocation/CoreLocation.h>
 
-typedef void(^DidFetchLocationBlock)(BOOL success, CLLocation *myLocation);
+typedef enum {
+    GBLocationFetchStateFailed,
+    GBLocationFetchStateSuccess,
+    GBLocationFetchStateCancelled,
+} GBLocationFetchState;
+
+typedef void(^DidFetchLocationBlock)(GBLocationFetchState state, CLLocation *myLocation);
+
+@interface GBLocationFetch : NSObject
+
+-(void)cancel;
+
+@end
 
 @interface GBLocation : NSObject
 
@@ -20,7 +32,7 @@ typedef void(^DidFetchLocationBlock)(BOOL success, CLLocation *myLocation);
 +(GBLocation *)sharedLocation;
 
 -(void)refreshCurrentLocationWithAccuracy:(CLLocationAccuracy)accuracy;
--(void)refreshCurrentLocationWithCompletion:(DidFetchLocationBlock)block;
--(void)refreshCurrentLocationWithAccuracy:(CLLocationAccuracy)accuracy completion:(DidFetchLocationBlock)block;
+-(GBLocationFetch *)refreshCurrentLocationWithCompletion:(DidFetchLocationBlock)block;
+-(GBLocationFetch *)refreshCurrentLocationWithAccuracy:(CLLocationAccuracy)accuracy completion:(DidFetchLocationBlock)block;
 
 @end

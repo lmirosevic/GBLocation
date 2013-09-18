@@ -11,12 +11,53 @@
 static NSTimeInterval const kDefaultTimeout =           4;
 #define kDefaultDesiredAccuracy                         kCLLocationAccuracyKilometer
 
+@interface GBLocationFetch ()
+
+@property (weak, nonatomic) DidFetchLocationBlock       block;
+@property (weak, nonatomic) GBLocation                  *GBLocation;
+
++(GBLocationFetch *)cancelWithGBLocation:(GBLocation *)GBLocation block:(DidFetchLocationBlock)block;
+-(id)initWithGBLocation:(GBLocation *)GBLocation block:(DidFetchLocationBlock)block;
+
+@end
+
 @interface GBLocation () <CLLocationManagerDelegate>
 
 @property (strong, nonatomic) CLLocationManager         *locationManager;
 @property (strong, nonatomic, readwrite) CLLocation     *myLocation;
 @property (strong, nonatomic) NSMutableArray            *didFetchLocationBlockHandlers;
 @property (assign, nonatomic) CLLocationAccuracy        desiredAccuracy;
+
+-(void)_removeBlock:(DidFetchLocationBlock)block;
+
+@end
+
+@implementation GBLocationFetch
+
+#pragma mark - Mem
+
++(GBLocationFetch *)cancelWithGBLocation:(GBLocation *)GBLocation block:(DidFetchLocationBlock)block {
+    return [[self alloc] initWithGBLocation:GBLocation block:block];
+}
+
+-(id)initWithGBLocation:(GBLocation *)GBLocation block:(DidFetchLocationBlock)block {
+    if (self = [super init]) {
+        self.GBLocation = GBLocation;
+        self.block = block;
+    }
+    
+    return self;
+}
+
+#pragma mark - API
+
+-(void)cancel {
+    //return cancelled state and old location
+    if (self.block) self.block(GBLocationFetchStateCancelled, self.GBLocation.myLocation);
+    
+    [self.GBLocation _removeBlock:self.block];
+    self.block = nil;//just for good measure in case someone else is retaining the block
+}
 
 @end
 
@@ -65,7 +106,7 @@ static NSTimeInterval const kDefaultTimeout =           4;
 -(void)locationManager:(CLLocationManager *)manager didFailWithError:(NSError *)error {
     [manager stopUpdatingLocation];
     
-    [self _processBlocksWithSuccess:NO];
+    [self _processBlocksWithState:GBLocationFetchStateFailed];
 }
 
 //called in iOS 5
@@ -84,27 +125,33 @@ static NSTimeInterval const kDefaultTimeout =           4;
     [self refreshCurrentLocationWithAccuracy:accuracy completion:nil];
 }
 
--(void)refreshCurrentLocationWithCompletion:(DidFetchLocationBlock)block {
-    [self refreshCurrentLocationWithAccuracy:self.desiredAccuracy completion:block];
+-(GBLocationFetch *)refreshCurrentLocationWithCompletion:(DidFetchLocationBlock)block {
+    return [self refreshCurrentLocationWithAccuracy:self.desiredAccuracy completion:block];
 }
 
--(void)refreshCurrentLocationWithAccuracy:(CLLocationAccuracy)accuracy completion:(DidFetchLocationBlock)block {
-    [self _addBlock:block];
+-(GBLocationFetch *)refreshCurrentLocationWithAccuracy:(CLLocationAccuracy)accuracy completion:(DidFetchLocationBlock)block {
+    DidFetchLocationBlock copiedBlock = [block copy];
+    [self _addBlock:copiedBlock];
+    
     self.desiredAccuracy = MIN(self.desiredAccuracy, accuracy);
     
     [self _startUpdates];
     
-    if (block) {
+    if (copiedBlock) {
         //after a timeout...
         dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(self.timeout * NSEC_PER_SEC));
         dispatch_after(popTime, dispatch_get_main_queue(), ^{
-            //call the block with a fail
-            block(NO, self.myLocation);
-            
-            //remove it from the array
-            [self _removeBlock:block];
+            if ([self _isBlockQueued:copiedBlock]) {
+                //call the block with a fail, and provide old location
+                copiedBlock(GBLocationFetchStateFailed, self.myLocation);
+                
+                //remove it from the array
+                [self _removeBlock:copiedBlock];
+            }
         });
     }
+    
+    return [GBLocationFetch cancelWithGBLocation:self block:copiedBlock];
 }
 
 #pragma mark - util
@@ -114,7 +161,7 @@ static NSTimeInterval const kDefaultTimeout =           4;
         //remember the location
         self.myLocation = location;
         
-        [self _processBlocksWithSuccess:YES];
+        [self _processBlocksWithState:GBLocationFetchStateSuccess];
         
         [self _stopUpdates];
     }
@@ -130,26 +177,35 @@ static NSTimeInterval const kDefaultTimeout =           4;
     [self.locationManager stopUpdatingLocation];
 }
 
--(void)_processBlocksWithSuccess:(BOOL)success {
+-(void)_processBlocksWithState:(GBLocationFetchState)state {
     //go through all the blocks, call them
     for (DidFetchLocationBlock block in self.didFetchLocationBlockHandlers) {
-        block(success, self.myLocation);
+        block(state, self.myLocation);
     }
     
     //reset the array (it's lazy)
     self.didFetchLocationBlockHandlers = nil;
 }
 
+-(BOOL)_isBlockQueued:(DidFetchLocationBlock)block {
+    if (block) {
+        return [self.didFetchLocationBlockHandlers containsObject:block];
+    }
+    else {
+        return NO;
+    }
+}
+
 -(void)_addBlock:(DidFetchLocationBlock)block {
     if (block) {
         //add a copy to our array
-        [self.didFetchLocationBlockHandlers addObject:[block copy]];
+        [self.didFetchLocationBlockHandlers addObject:block];
     }
 }
 
 -(void)_removeBlock:(DidFetchLocationBlock)block {
     if (block) {
-        //add a copy to our array
+        //remove it from our array
         [self.didFetchLocationBlockHandlers removeObject:block];
     }
 }
