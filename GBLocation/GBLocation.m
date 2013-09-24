@@ -27,6 +27,7 @@ static NSTimeInterval const kDefaultTimeout =           4;
 @property (strong, nonatomic, readwrite) CLLocation     *myLocation;
 @property (strong, nonatomic) NSMutableArray            *didFetchLocationBlockHandlers;
 @property (assign, nonatomic) CLLocationAccuracy        desiredAccuracy;
+@property (assign, nonatomic) BOOL                      timeoutShunted;
 
 -(void)_removeBlock:(DidFetchLocationBlock)block;
 
@@ -73,6 +74,15 @@ static NSTimeInterval const kDefaultTimeout =           4;
     return _didFetchLocationBlockHandlers;
 }
 
+-(void)setMyLocation:(CLLocation *)myLocation {
+    _myLocation = myLocation;
+    
+    //turn off the timeout shunt if we get a location
+    if (myLocation) {
+        self.timeoutShunted = NO;
+    }
+}
+
 #pragma mark - memory
 
 +(GBLocation *)sharedLocation {
@@ -96,6 +106,7 @@ static NSTimeInterval const kDefaultTimeout =           4;
         
         self.desiredAccuracy = kDefaultDesiredAccuracy;
         self.timeout = kDefaultTimeout;
+        self.timeoutShunted = YES;
     }
     
     return self;
@@ -137,7 +148,7 @@ static NSTimeInterval const kDefaultTimeout =           4;
     
     [self _startUpdates];
     
-    if (copiedBlock) {
+    if (copiedBlock && !self.timeoutShunted) {
         //after a timeout...
         dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(self.timeout * NSEC_PER_SEC));
         dispatch_after(popTime, dispatch_get_main_queue(), ^{
