@@ -102,6 +102,7 @@ static NSTimeInterval const kDefaultTimeout =           4;
     if (self) {
         self.locationManager = [CLLocationManager new];
         self.locationManager.delegate = self;
+        self.locationManager.distanceFilter = kCLDistanceFilterNone;
         if ([self.locationManager respondsToSelector:@selector(setPausesLocationUpdatesAutomatically:)]) [self.locationManager setPausesLocationUpdatesAutomatically:NO];//ios 6 only
         
         self.desiredAccuracy = kDefaultDesiredAccuracy;
@@ -141,13 +142,22 @@ static NSTimeInterval const kDefaultTimeout =           4;
 }
 
 -(GBLocationFetch *)refreshCurrentLocationWithAccuracy:(CLLocationAccuracy)accuracy completion:(DidFetchLocationBlock)block {
+    //copy and store the block
     DidFetchLocationBlock copiedBlock = [block copy];
     [self _addBlock:copiedBlock];
     
-    self.desiredAccuracy = MIN(self.desiredAccuracy, accuracy);
+    //set the desired accuracy
+    self.desiredAccuracy = accuracy;
     
+    //in any case, get the most recent location from the location manager right now, because he might not send us an update later
+    if (self.locationManager.location) {
+        self.myLocation = self.locationManager.location;
+    }
+    
+    //start updates
     [self _startUpdates];
     
+    //set up timeout block
     if (copiedBlock && !self.timeoutShunted) {
         //after a timeout...
         dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(self.timeout * NSEC_PER_SEC));
@@ -162,18 +172,19 @@ static NSTimeInterval const kDefaultTimeout =           4;
         });
     }
     
+    //return a cancel deferrable for the block
     return [GBLocationFetch cancelWithGBLocation:self block:copiedBlock];
 }
 
 #pragma mark - util
 
 -(void)_gotNewLocation:(CLLocation *)location {
+    //always store the new location, it may be newer, more accurate, etc.
+    self.myLocation = location;
+    
+    //if the new location meets the accuracy requirement, then stop processing blocks (in the case this doesn't happen for a while, our timeout will kick in for us)
     if (location.horizontalAccuracy > 0 && location.horizontalAccuracy <= self.desiredAccuracy) {
-        //remember the location
-        self.myLocation = location;
-        
         [self _processBlocksWithState:GBLocationFetchStateSuccess];
-        
         [self _stopUpdates];
     }
 }
