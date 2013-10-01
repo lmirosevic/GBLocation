@@ -11,6 +11,8 @@
 static NSTimeInterval const kDefaultTimeout =           4;
 #define kDefaultDesiredAccuracy                         kCLLocationAccuracyKilometer
 
+static NSTimeInterval const kPermissionCheckPeriod =    1./5.;// 5 times/sec
+
 @interface GBLocationFetch ()
 
 @property (weak, nonatomic) DidFetchLocationBlock       block;
@@ -24,12 +26,14 @@ static NSTimeInterval const kDefaultTimeout =           4;
 @interface GBLocation () <CLLocationManagerDelegate>
 
 @property (strong, nonatomic) CLLocationManager         *locationManager;
-@property (strong, nonatomic, readwrite) CLLocation     *myLocation;
 @property (strong, nonatomic) NSMutableArray            *didFetchLocationBlockHandlers;
 @property (assign, nonatomic) CLLocationAccuracy        desiredAccuracy;
-@property (assign, nonatomic) BOOL                      timeoutShunted;
+
+@property (strong, nonatomic) NSMutableArray            *deferredHandlers;
+@property (strong, nonatomic) NSTimer                   *permissionCheckTimer;
 
 -(void)_removeBlock:(DidFetchLocationBlock)block;
+-(void)_removeDeferredBlock:(DidFetchLocationBlock)block;
 
 @end
 
@@ -56,8 +60,13 @@ static NSTimeInterval const kDefaultTimeout =           4;
     //return cancelled state and old location
     if (self.block) self.block(GBLocationFetchStateCancelled, self.GBLocation.myLocation);
     
+    //remove block from committed queue
     [self.GBLocation _removeBlock:self.block];
-    self.block = nil;//just for good measure in case someone else is retaining the block
+    
+    //remove block from deferred queue
+    [self.GBLocation _removeDeferredBlock:self.block];
+    
+    self.block = nil;//just for good measure... but we're weak so it shouldn't make a difference for mem management
 }
 
 @end
@@ -66,21 +75,16 @@ static NSTimeInterval const kDefaultTimeout =           4;
 
 #pragma mark - CA
 
+-(CLLocation *)myLocation {
+    return self.locationManager.location;
+}
+
 -(NSMutableArray *)didFetchLocationBlockHandlers {
     if (!_didFetchLocationBlockHandlers) {
         _didFetchLocationBlockHandlers = [NSMutableArray new];
     }
     
     return _didFetchLocationBlockHandlers;
-}
-
--(void)setMyLocation:(CLLocation *)myLocation {
-    _myLocation = myLocation;
-    
-    //turn off the timeout shunt if we get a location
-    if (myLocation) {
-        self.timeoutShunted = NO;
-    }
 }
 
 #pragma mark - memory
@@ -107,7 +111,6 @@ static NSTimeInterval const kDefaultTimeout =           4;
         
         self.desiredAccuracy = kDefaultDesiredAccuracy;
         self.timeout = kDefaultTimeout;
-        self.timeoutShunted = YES;
     }
     
     return self;
@@ -142,46 +145,145 @@ static NSTimeInterval const kDefaultTimeout =           4;
 }
 
 -(GBLocationFetch *)refreshCurrentLocationWithAccuracy:(CLLocationAccuracy)accuracy completion:(DidFetchLocationBlock)block {
-    //copy and store the block
-    DidFetchLocationBlock copiedBlock = [block copy];
-    [self _addBlock:copiedBlock];
-    
     //set the desired accuracy
     self.desiredAccuracy = accuracy;
     
-    //in any case, get the most recent location from the location manager right now, because he might not send us an update later
-    if (self.locationManager.location) {
-        self.myLocation = self.locationManager.location;
+    switch ([CLLocationManager authorizationStatus]) {
+        case kCLAuthorizationStatusAuthorized: {
+            //copy the block
+            DidFetchLocationBlock copiedBlock = [block copy];
+            
+            //store block
+            [self _addBlock:copiedBlock];
+            
+            //start updates
+            [self _startUpdates];
+            
+            //set up timeout block
+            [self _activateTimeoutForBlock:copiedBlock];
+            
+            //return a cancel deferrable for the block
+            return [GBLocationFetch cancelWithGBLocation:self block:copiedBlock];
+        } break;
+            
+        case kCLAuthorizationStatusNotDetermined: {
+            //copy the block
+            DidFetchLocationBlock copiedBlock = [block copy];
+            
+            //start the permission watch and defer the block timeout activation
+            [self _startPermissionWatchAndDeferBlock:copiedBlock];
+            
+            //start updates, so that the notification view is presented to the user, and the immediately stop it (once authorisation is granted, it will be restarted)
+            [self _startUpdates];
+            [self _stopUpdates];
+            
+            //return a cancel deferrable for the block
+            return [GBLocationFetch cancelWithGBLocation:self block:copiedBlock];
+        } break;
+            
+        case kCLAuthorizationStatusDenied:
+        case kCLAuthorizationStatusRestricted: {
+            //we don't have auth, so we failed
+            if (block) block(GBLocationFetchStateFailed, self.myLocation);
+            
+            return nil;
+        } break;
     }
-    
-    //start updates
-    [self _startUpdates];
-    
-    //set up timeout block
-    if (copiedBlock && !self.timeoutShunted) {
-        //after a timeout...
-        dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(self.timeout * NSEC_PER_SEC));
-        dispatch_after(popTime, dispatch_get_main_queue(), ^{
-            if ([self _isBlockQueued:copiedBlock]) {
-                //call the block with a fail, and provide old location
-                copiedBlock(GBLocationFetchStateFailed, self.myLocation);
-                
-                //remove it from the array
-                [self _removeBlock:copiedBlock];
-            }
-        });
-    }
-    
-    //return a cancel deferrable for the block
-    return [GBLocationFetch cancelWithGBLocation:self block:copiedBlock];
 }
 
 #pragma mark - util
 
--(void)_gotNewLocation:(CLLocation *)location {
-    //always store the new location, it may be newer, more accurate, etc.
-    self.myLocation = location;
+-(void)_startPermissionWatchAndDeferBlock:(DidFetchLocationBlock)block {
+    //create the array if we don't have one yet
+    if (!self.deferredHandlers) {
+        self.deferredHandlers = [NSMutableArray new];
+    }
     
+    //store the block, if we got one
+    [self _addDeferredBlock:block];
+    
+    //start permission checking, if it's not already ongoing
+    if (!self.permissionCheckTimer) {
+        self.permissionCheckTimer = [NSTimer scheduledTimerWithTimeInterval:kPermissionCheckPeriod target:self selector:@selector(_checkPermission) userInfo:nil repeats:YES];
+    }
+}
+
+-(void)_checkPermission {
+    switch ([CLLocationManager authorizationStatus]) {
+        case kCLAuthorizationStatusAuthorized: {
+            [self _stopPermissionTimer];
+            [self _receivedPermission];
+        } break;
+            
+        case kCLAuthorizationStatusDenied:
+        case kCLAuthorizationStatusRestricted: {
+            [self _stopPermissionTimer];
+            [self _deniedPermission];
+        } break;
+            
+        case kCLAuthorizationStatusNotDetermined: {
+            //noop, keep going
+        } break;
+    }
+}
+
+-(void)_stopPermissionTimer {
+    [self.permissionCheckTimer invalidate];
+    self.permissionCheckTimer = nil;
+}
+
+-(void)_receivedPermission {
+    //commit all the deferred blocks, and activate their timeouts
+    [self _commitDeferredBlocks];
+    
+    //start updates
+    [self _startUpdates];
+}
+
+-(void)_deniedPermission {
+    //fail all the deferred block
+    [self _failDeferredBlocks];
+}
+
+-(void)_commitDeferredBlocks {
+    for (DidFetchLocationBlock block in self.deferredHandlers) {
+        //add it the real handlers
+        [self _addBlock:block];
+        
+        //activate the timeout for him
+        [self _activateTimeoutForBlock:block];
+    }
+    
+    //clean up some mem
+    self.deferredHandlers = nil;
+}
+
+-(void)_failDeferredBlocks {
+    for (DidFetchLocationBlock block in self.deferredHandlers) {
+        block(GBLocationFetchStateFailed, self.myLocation);
+    }
+    
+    //clean up some mem
+    self.deferredHandlers = nil;
+}
+
+-(void)_activateTimeoutForBlock:(DidFetchLocationBlock)block {
+    if (block) {
+        //after a timeout...
+        dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(self.timeout * NSEC_PER_SEC));
+        dispatch_after(popTime, dispatch_get_main_queue(), ^{
+            if ([self _isBlockQueued:block]) {//we need to check because the block might have been cancelled, in which case we don't want to fail it since it's already been processed with a cancelled flag
+                //call the block with a fail, and provide old location
+                block(GBLocationFetchStateFailed, self.myLocation);
+                
+                //remove it from the array
+                [self _removeBlock:block];
+            }
+        });
+    }
+}
+
+-(void)_gotNewLocation:(CLLocation *)location {
     //if the new location meets the accuracy requirement, then stop processing blocks (in the case this doesn't happen for a while, our timeout will kick in for us)
     if (location.horizontalAccuracy > 0 && location.horizontalAccuracy <= self.desiredAccuracy) {
         [self _processBlocksWithState:GBLocationFetchStateSuccess];
@@ -229,6 +331,20 @@ static NSTimeInterval const kDefaultTimeout =           4;
     if (block) {
         //remove it from our array
         [self.didFetchLocationBlockHandlers removeObject:block];
+    }
+}
+
+-(void)_addDeferredBlock:(DidFetchLocationBlock)block {
+    if (block) {
+        //add a copy to our array
+        [self.deferredHandlers addObject:block];
+    }
+}
+
+-(void)_removeDeferredBlock:(DidFetchLocationBlock)block {
+    if (block) {
+        //remove it from our array
+        [self.deferredHandlers removeObject:block];
     }
 }
 
