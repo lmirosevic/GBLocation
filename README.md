@@ -1,5 +1,4 @@
-GBLocation
-============
+# GBLocation ![Version](https://img.shields.io/cocoapods/v/GBLocation.svg?style=flat)&nbsp;![License](https://img.shields.io/badge/license-Apache_2-green.svg?style=flat)
 
 Wrapper facade for simplifying the Core Motion APIs and exposing a blocks based interface.
 
