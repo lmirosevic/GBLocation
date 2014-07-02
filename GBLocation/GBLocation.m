@@ -33,7 +33,7 @@ static NSTimeInterval const kPermissionCheckPeriod =        1./5.;// 5 times/sec
 
 @property (strong, nonatomic) NSMutableArray            *deferredHandlers;
 @property (strong, nonatomic) NSTimer                   *permissionCheckTimer;
-@property (assign, nonatomic) NSTimeInterval            lastLocationFetchTime;
+@property (strong, nonatomic) NSDate                    *lastLocationFetchDate;
 
 -(void)_removeBlock:(DidFetchLocationBlock)block;
 -(void)_removeDeferredBlock:(DidFetchLocationBlock)block;
@@ -150,12 +150,12 @@ static NSTimeInterval const kPermissionCheckPeriod =        1./5.;// 5 times/sec
 
 -(GBLocationFetch *)refreshCurrentLocationWithAccuracy:(CLLocationAccuracy)accuracy completion:(DidFetchLocationBlock)block {
     //instantly call the block with cached location if locatoin refresh time is not expired yet
-    NSTimeInterval currentTime = [[NSProcessInfo processInfo] systemUptime];
-    if(self.myLocation && self.lastLocationFetchTime + self.refreshInterval > currentTime) {
+    NSDate *now = [NSDate date];
+    if(self.myLocation && [now timeIntervalSinceDate:self.lastLocationFetchDate] < self.refreshInterval) {
 	    if (block) block(GBLocationFetchStateSuccess, self.myLocation);
         return nil;
     }
-    self.lastLocationFetchTime = currentTime;
+    self.lastLocationFetchDate = now;
     
     //set the desired accuracy
     self.desiredAccuracy = accuracy;
