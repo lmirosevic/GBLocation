@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name         = "GBLocation"
-  s.version      = "0.1.3"
+  s.version      = "0.2.0"
   s.summary      = "Wrapper facade for simplifying the Core Motion APIs and exposing a blocks based interface."
   s.homepage     = "https://github.com/lmirosevic/GBLocation"
   s.license      = 'Apache License, Version 2.0'
