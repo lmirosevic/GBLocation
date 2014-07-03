@@ -8,10 +8,12 @@
 
 #import "GBLocation.h"
 
-static NSTimeInterval const kDefaultTimeout =           4;
-#define kDefaultDesiredAccuracy                         kCLLocationAccuracyKilometer
+NSTimeInterval const kGBLocationAlwaysFetchFreshLocation =  0.0;
 
-static NSTimeInterval const kPermissionCheckPeriod =    1./5.;// 5 times/sec
+static NSTimeInterval const kDefaultTimeout =			    4;
+#define kDefaultDesiredAccuracy                             kCLLocationAccuracyKilometer
+
+static NSTimeInterval const kPermissionCheckPeriod =        1./5.;// 5 times/sec
 
 @interface GBLocationFetch ()
 
@@ -31,6 +33,7 @@ static NSTimeInterval const kPermissionCheckPeriod =    1./5.;// 5 times/sec
 
 @property (strong, nonatomic) NSMutableArray            *deferredHandlers;
 @property (strong, nonatomic) NSTimer                   *permissionCheckTimer;
+@property (strong, nonatomic) NSDate                    *lastLocationFetchDate;
 
 -(void)_removeBlock:(DidFetchLocationBlock)block;
 -(void)_removeDeferredBlock:(DidFetchLocationBlock)block;
@@ -111,6 +114,7 @@ static NSTimeInterval const kPermissionCheckPeriod =    1./5.;// 5 times/sec
         
         self.desiredAccuracy = kDefaultDesiredAccuracy;
         self.timeout = kDefaultTimeout;
+        self.refreshInterval = kGBLocationAlwaysFetchFreshLocation;
     }
     
     return self;
@@ -145,6 +149,14 @@ static NSTimeInterval const kPermissionCheckPeriod =    1./5.;// 5 times/sec
 }
 
 -(GBLocationFetch *)refreshCurrentLocationWithAccuracy:(CLLocationAccuracy)accuracy completion:(DidFetchLocationBlock)block {
+    //instantly call the block with cached location if locatoin refresh time is not expired yet
+    NSDate *now = [NSDate date];
+    if(self.myLocation && [now timeIntervalSinceDate:self.lastLocationFetchDate] < self.refreshInterval) {
+	    if (block) block(GBLocationFetchStateSuccess, self.myLocation);
+        return nil;
+    }
+    self.lastLocationFetchDate = now;
+    
     //set the desired accuracy
     self.desiredAccuracy = accuracy;
     

@@ -10,6 +10,8 @@
 
 #import <CoreLocation/CoreLocation.h>
 
+extern NSTimeInterval const kGBLocationAlwaysFetchFreshLocation;
+
 typedef enum {
     GBLocationFetchStateFailed,
     GBLocationFetchStateSuccess,
@@ -28,6 +30,7 @@ typedef void(^DidFetchLocationBlock)(GBLocationFetchState state, CLLocation *myL
 
 @property (strong, nonatomic, readonly) CLLocation      *myLocation;
 @property (assign, nonatomic) NSTimeInterval            timeout;//defaults to 4 seconds
+@property (assign, nonatomic) NSTimeInterval            refreshInterval;//in seconds. Defaults to kGBLocationAlwaysFetchFreshLocation
 
 +(GBLocation *)sharedLocation;
 
