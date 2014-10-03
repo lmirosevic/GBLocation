@@ -316,9 +316,11 @@ static NSTimeInterval const kPermissionCheckPeriod =        1./5.;// 5 times/sec
 }
 
 -(void)_startUpdates {
-    if([self.locationManager respondsToSelector:@selector(requestWhenInUseAuthorization)]) {
+#ifdef __IPHONE_8_0
+    if ([self.locationManager respondsToSelector:@selector(requestWhenInUseAuthorization)]) {
         [self.locationManager requestWhenInUseAuthorization];
     }
+#endif
     [self.locationManager stopUpdatingLocation];//calling this triggers an initial fix to be sent again
     self.locationManager.desiredAccuracy = self.desiredAccuracy;
     [self.locationManager startUpdatingLocation];
