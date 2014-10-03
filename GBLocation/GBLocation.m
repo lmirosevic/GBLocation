@@ -161,7 +161,13 @@ static NSTimeInterval const kPermissionCheckPeriod =        1./5.;// 5 times/sec
     self.desiredAccuracy = accuracy;
     
     switch ([CLLocationManager authorizationStatus]) {
-        case kCLAuthorizationStatusAuthorized: {
+#ifdef __IPHONE_8_0
+        case kCLAuthorizationStatusAuthorizedWhenInUse:
+        case kCLAuthorizationStatusAuthorizedAlways:
+#else
+        case kCLAuthorizationStatusAuthorized:
+#endif
+        {
             //copy the block
             DidFetchLocationBlock copiedBlock = [block copy];
             
@@ -222,7 +228,13 @@ static NSTimeInterval const kPermissionCheckPeriod =        1./5.;// 5 times/sec
 
 -(void)_checkPermission {
     switch ([CLLocationManager authorizationStatus]) {
-        case kCLAuthorizationStatusAuthorized: {
+#ifdef __IPHONE_8_0
+        case kCLAuthorizationStatusAuthorizedWhenInUse:
+        case kCLAuthorizationStatusAuthorizedAlways:
+#else
+        case kCLAuthorizationStatusAuthorized:
+#endif
+        {
             [self _stopPermissionTimer];
             [self _receivedPermission];
         } break;
@@ -304,6 +316,7 @@ static NSTimeInterval const kPermissionCheckPeriod =        1./5.;// 5 times/sec
 }
 
 -(void)_startUpdates {
+    [self.locationManager requestWhenInUseAuthorization];
     [self.locationManager stopUpdatingLocation];//calling this triggers an initial fix to be sent again
     self.locationManager.desiredAccuracy = self.desiredAccuracy;
     [self.locationManager startUpdatingLocation];
