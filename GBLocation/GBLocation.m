@@ -8,17 +8,20 @@
 
 #import "GBLocation.h"
 
-NSTimeInterval const kGBLocationAlwaysFetchFreshLocation =  0.0;
+NSTimeInterval const kGBLocationAlwaysFetchFreshLocation =                      0.0;
 
-static NSTimeInterval const kDefaultTimeout =			    4;
-#define kDefaultDesiredAccuracy                             kCLLocationAccuracyKilometer
+static NSTimeInterval const kDefaultTimeout =                                   4;
+#define kDefaultDesiredAccuracy                                                 kCLLocationAccuracyKilometer
+static BOOL const kDefaultShouldAutomaticallyRequestLocationAuthorization =     YES;
+static BOOL const kDefaultLocationAuthorizationType =                           GBLocationUsageAuthorizationAlways;
 
-static NSTimeInterval const kPermissionCheckPeriod =        1./5.;// 5 times/sec
+
+static NSTimeInterval const kPermissionCheckPeriod =                            1./5.;// 5 times/sec
 
 @interface GBLocationFetch ()
 
-@property (weak, nonatomic) DidFetchLocationBlock       block;
-@property (weak, nonatomic) GBLocation                  *GBLocation;
+@property (weak, nonatomic) DidFetchLocationBlock                               block;
+@property (weak, nonatomic) GBLocation                                          *GBLocation;
 
 +(GBLocationFetch *)cancelWithGBLocation:(GBLocation *)GBLocation block:(DidFetchLocationBlock)block;
 -(id)initWithGBLocation:(GBLocation *)GBLocation block:(DidFetchLocationBlock)block;
@@ -27,13 +30,17 @@ static NSTimeInterval const kPermissionCheckPeriod =        1./5.;// 5 times/sec
 
 @interface GBLocation () <CLLocationManagerDelegate>
 
-@property (strong, nonatomic) CLLocationManager         *locationManager;
-@property (strong, nonatomic) NSMutableArray            *didFetchLocationBlockHandlers;
-@property (assign, nonatomic) CLLocationAccuracy        desiredAccuracy;
+@property (strong, nonatomic) CLLocationManager                                 *locationManager;
+@property (strong, nonatomic) NSMutableArray                                    *didFetchLocationBlockHandlers;
+@property (assign, nonatomic) CLLocationAccuracy                                desiredAccuracy;
 
-@property (strong, nonatomic) NSMutableArray            *deferredHandlers;
-@property (strong, nonatomic) NSTimer                   *permissionCheckTimer;
-@property (strong, nonatomic) NSDate                    *lastLocationFetchDate;
+@property (strong, nonatomic) NSMutableArray                                    *deferredHandlers;
+@property (strong, nonatomic) NSTimer                                           *permissionCheckTimer;
+@property (strong, nonatomic) NSDate                                            *lastLocationFetchDate;
+
+@property (assign, nonatomic) BOOL                                              hasTriggeredLocationAuthorizationRequest;
+
+@property (copy, nonatomic) UserDidFinishingAuthorizingLocationServicesBlock    authorizationRequestBlock;
 
 -(void)_removeBlock:(DidFetchLocationBlock)block;
 -(void)_removeDeferredBlock:(DidFetchLocationBlock)block;
@@ -90,6 +97,10 @@ static NSTimeInterval const kPermissionCheckPeriod =        1./5.;// 5 times/sec
     return _didFetchLocationBlockHandlers;
 }
 
+-(BOOL)hasRequestedLocationAuthorization {
+    return ([CLLocationManager authorizationStatus] != kCLAuthorizationStatusNotDetermined) || self.hasTriggeredLocationAuthorizationRequest;
+}
+
 #pragma mark - memory
 
 +(GBLocation *)sharedLocation {
@@ -104,9 +115,24 @@ static NSTimeInterval const kPermissionCheckPeriod =        1./5.;// 5 times/sec
     }
 }
 
+-(BOOL)_isUsageDescriptionPresentForAlwaysUsage {
+    return (((NSString *)[[NSBundle mainBundle] objectForInfoDictionaryKey:@"NSLocationAlwaysUsageDescription"]).length > 0);
+}
+
+-(BOOL)_isUsageDescriptionPresentForWhenInUseUsage {
+    return (((NSString *)[[NSBundle mainBundle] objectForInfoDictionaryKey:@"NSLocationWhenInUseUsageDescription"]).length > 0);
+}
+
 - (id)init {
     self = [super init];
     if (self) {
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 80000
+        // check to make sure that at least one description is in the bundle
+        if (![self _isUsageDescriptionPresentForAlwaysUsage] && ![self _isUsageDescriptionPresentForWhenInUseUsage]) {
+            @throw [NSException exceptionWithName:NSInternalInconsistencyException reason:@"You must set the appropriate keys (NSLocationAlwaysUsageDescription and/or NSLocationWhenInUseUsageDescription) in the Info.plist in order to use location services." userInfo:nil];
+        }
+#endif
+        
         self.locationManager = [CLLocationManager new];
         self.locationManager.delegate = self;
         self.locationManager.distanceFilter = kCLDistanceFilterNone;
@@ -115,6 +141,9 @@ static NSTimeInterval const kPermissionCheckPeriod =        1./5.;// 5 times/sec
         self.desiredAccuracy = kDefaultDesiredAccuracy;
         self.timeout = kDefaultTimeout;
         self.refreshInterval = kGBLocationAlwaysFetchFreshLocation;
+        self.hasTriggeredLocationAuthorizationRequest = NO;
+        self.shouldAutomaticallyRequestLocationAuthorization = kDefaultShouldAutomaticallyRequestLocationAuthorization;
+        self.locationAuthorizationType = kDefaultLocationAuthorizationType;
     }
     
     return self;
@@ -149,19 +178,19 @@ static NSTimeInterval const kPermissionCheckPeriod =        1./5.;// 5 times/sec
 }
 
 -(GBLocationFetch *)refreshCurrentLocationWithAccuracy:(CLLocationAccuracy)accuracy completion:(DidFetchLocationBlock)block {
-    //instantly call the block with cached location if locatoin refresh time is not expired yet
+    //set the desired accuracy
+    self.desiredAccuracy = accuracy;
+    
+    //instantly call the block with cached location if location refresh time is not expired yet
     NSDate *now = [NSDate date];
-    if(self.myLocation && [now timeIntervalSinceDate:self.lastLocationFetchDate] < self.refreshInterval) {
+    if (self.myLocation && [now timeIntervalSinceDate:self.lastLocationFetchDate] < self.refreshInterval) {
 	    if (block) block(GBLocationFetchStateSuccess, self.myLocation);
         return nil;
     }
     self.lastLocationFetchDate = now;
     
-    //set the desired accuracy
-    self.desiredAccuracy = accuracy;
-    
     switch ([CLLocationManager authorizationStatus]) {
-#ifdef __IPHONE_8_0
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 80000
         case kCLAuthorizationStatusAuthorizedWhenInUse:
         case kCLAuthorizationStatusAuthorizedAlways:
 #else
@@ -187,13 +216,14 @@ static NSTimeInterval const kPermissionCheckPeriod =        1./5.;// 5 times/sec
         case kCLAuthorizationStatusNotDetermined: {
             //copy the block
             DidFetchLocationBlock copiedBlock = [block copy];
-            
-            //start the permission watch and defer the block timeout activation
+
+            //start the permission WATCH and defer the block timeout activation, this will take care of the block so it is called once the authorization is determined, either failed or commited. It effectively pauses the timeout while the popup is displayed to the user
             [self _startPermissionWatchAndDeferBlock:copiedBlock];
             
-            //start updates, so that the notification view is presented to the user, and the immediately stop it (once authorisation is granted, it will be restarted)
-            [self _startUpdates];
-            [self _stopUpdates];
+            //trigger the actual authorization request from the user if allowed
+            if (self.shouldAutomaticallyRequestLocationAuthorization) {
+                [self _triggerAuthorizationRequestWithBlock:nil];
+            }
             
             //return a cancel deferrable for the block
             return [GBLocationFetch cancelWithGBLocation:self block:copiedBlock];
@@ -209,7 +239,51 @@ static NSTimeInterval const kPermissionCheckPeriod =        1./5.;// 5 times/sec
     }
 }
 
+-(void)triggerLocationAuthorizationRequestFromUserCompleted:(UserDidFinishingAuthorizingLocationServicesBlock)block {
+    if (self.hasRequestedLocationAuthorization) @throw [NSException exceptionWithName:NSInternalInconsistencyException reason:@"Can't request location authorization multiple times." userInfo:nil];
+    if (self.shouldAutomaticallyRequestLocationAuthorization) @throw [NSException exceptionWithName:NSInternalInconsistencyException reason:@"You can't manually request location authorization from the user if `shouldAutomaticallyRequestLocationAuthorization` is set to YES." userInfo:nil];
+    
+    //start watching for the result
+    [self _startPermissionWatchAndDeferBlock:nil];
+    
+    //trigger the actual request
+    [self _triggerAuthorizationRequestWithBlock:block];
+}
+
 #pragma mark - util
+
+-(void)_triggerAuthorizationRequestWithBlock:(UserDidFinishingAuthorizingLocationServicesBlock)block {
+    if (!self.hasRequestedLocationAuthorization) {
+        //remember that we requested the authorization so that we don't do it multiple times
+        self.hasTriggeredLocationAuthorizationRequest = YES;
+        
+        //store the block
+        self.authorizationRequestBlock = block;
+        
+        //iOS8+
+        if ([[[UIDevice currentDevice] systemVersion] floatValue] >= 8.0) {
+            switch (self.locationAuthorizationType) {
+                case GBLocationUsageAuthorizationAlways: {
+                    if (![self _isUsageDescriptionPresentForAlwaysUsage]) @throw [NSException exceptionWithName:NSInternalInconsistencyException reason:@"You must set key NSLocationAlwaysUsageDescription in the Info.plist." userInfo:nil];
+                        
+                    [self.locationManager requestAlwaysAuthorization];
+                } break;
+                    
+                case GBLocationUsageAuthorizationWhenInUse: {
+                    if (![self _isUsageDescriptionPresentForWhenInUseUsage]) @throw [NSException exceptionWithName:NSInternalInconsistencyException reason:@"You must set key NSLocationWhenInUseUsageDescription in the Info.plist." userInfo:nil];
+                    
+                    [self.locationManager requestWhenInUseAuthorization];
+                } break;
+            }
+        }
+        //iOS7 and below
+        else {
+            //start updates, so that the notification view is presented to the user, and then immediately stop it (once authorisation is granted, it will be restarted)
+            [self _startUpdates];
+            [self _stopUpdates];
+        }
+    }
+}
 
 -(void)_startPermissionWatchAndDeferBlock:(DidFetchLocationBlock)block {
     //create the array if we don't have one yet
@@ -228,7 +302,7 @@ static NSTimeInterval const kPermissionCheckPeriod =        1./5.;// 5 times/sec
 
 -(void)_checkPermission {
     switch ([CLLocationManager authorizationStatus]) {
-#ifdef __IPHONE_8_0
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 80000
         case kCLAuthorizationStatusAuthorizedWhenInUse:
         case kCLAuthorizationStatusAuthorizedAlways:
 #else
@@ -257,6 +331,9 @@ static NSTimeInterval const kPermissionCheckPeriod =        1./5.;// 5 times/sec
 }
 
 -(void)_receivedPermission {
+    //call back the trigger block
+    [self _callAuthorizationRequestBlock];
+    
     //commit all the deferred blocks, and activate their timeouts
     [self _commitDeferredBlocks];
     
@@ -267,6 +344,16 @@ static NSTimeInterval const kPermissionCheckPeriod =        1./5.;// 5 times/sec
 -(void)_deniedPermission {
     //fail all the deferred block
     [self _failDeferredBlocks];
+    
+    //call back the trigger block
+    [self _callAuthorizationRequestBlock];
+}
+
+-(void)_callAuthorizationRequestBlock {
+    if (self.authorizationRequestBlock) {
+        self.authorizationRequestBlock([CLLocationManager authorizationStatus]);
+        self.authorizationRequestBlock = nil;
+    }
 }
 
 -(void)_commitDeferredBlocks {
