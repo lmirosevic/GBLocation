@@ -116,11 +116,11 @@ static NSTimeInterval const kPermissionCheckPeriod =                            
 }
 
 -(BOOL)_isUsageDescriptionPresentForAlwaysUsage {
-    return (((NSString *)[[NSBundle mainBundle] objectForInfoDictionaryKey:@"NSLocationAlwaysUsageDescription"]).length > 0);
+    return (((NSString *)[[NSBundle mainBundle] objectForInfoDictionaryKey:@"NSLocationAlwaysUsageDescription"]) != nil);
 }
 
 -(BOOL)_isUsageDescriptionPresentForWhenInUseUsage {
-    return (((NSString *)[[NSBundle mainBundle] objectForInfoDictionaryKey:@"NSLocationWhenInUseUsageDescription"]).length > 0);
+    return (((NSString *)[[NSBundle mainBundle] objectForInfoDictionaryKey:@"NSLocationWhenInUseUsageDescription"]) != nil);
 }
 
 - (id)init {
